@@ -1,7 +1,8 @@
 import os 
 from shutil import copy2
 import cv2
-import multiprocessing
+# import multiprocessing
+import concurrent.futures
 
 
 ade20k_path = 'D:/Python/Datasets/ADE20K_2016_07_26/images/training' # where the ADE20K dataset is
@@ -35,9 +36,13 @@ def write_binary_mask(root, f, dest):
 	cv2.imwrite(dest + '/' + f[:-8] + '_seg.png', img)
 	print(dest + '/' + f[:-8] + '_seg.png')
 
+
+
 #go through all the folders
 for (root,dirs,files) in os.walk(ade20k_path, topdown=True): 
-	
+	roots = []
+	fs = []
+	dests = []
 	# filter txt files
 	txt_files = [f for f in files if f.endswith(".txt")]
 	
@@ -46,15 +51,23 @@ for (root,dirs,files) in os.walk(ade20k_path, topdown=True):
 			data = file.read() 
 			if all(labels in data for labels in  labels_to_filter):
 				file_count += 1
-				if __name__ == '__main__':
-					p = multiprocessing.Process( target = write_binary_mask, args =(root, f, dest))
-					p.start()
-					processes.append(p)
+				roots.append(root)
+				fs.append(f)
+				dests.append(dest)
+
+				# if __name__ == '__main__':
+				# 	p = multiprocessing.Process( target = write_binary_mask, args =(root, f, dest))
+				# 	p.start()
+				# 	processes.append(p)
 				
 				# if file_count == 10:
 				# 	break
 	if __name__ == '__main__':
-		for process in processes:
-			process.join()
+		with concurrent.futures.ProcessPoolExecutor() as executor:
+			future = executor.map(write_binary_mask, roots, fs, dests)
+	# if __name__ == '__main__':
+	# 	for process in processes:
+	# 		process.join()
 	print ('--------------------------------')
+
 print("found " + str(file_count) + " files")
