@@ -5,10 +5,10 @@ import cv2
 import concurrent.futures
 
 
-ade20k_path = 'D:/Python/Datasets/ADE20K_2016_07_26/images/training' # where the ADE20K dataset is
+ade20k_path = 'D:/Python/Datasets/ADE20K_2016_07_26/images/validation' # where the ADE20K dataset is
 # ade20k_path = 'D:/ADE20K_2016_07_26/images/training' # where the ADE20K dataset is
 
-dest = 'D:/Python/DataSets/ADE20K_Filtered' # where the filtered files are copied
+dest = 'D:/Python/DataSets/ADE20K_Filtered/Validation' # where the filtered files are copied
 
 labels_to_filter = [" wall ", " ceiling ", " floor "]   # what label do you want to find
 
