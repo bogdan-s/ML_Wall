@@ -34,7 +34,6 @@ mask_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
 
 img_size = 512                          # resize al images to this size
 
-
 # Train & Validation images and masks
 train_image_generator = image_datagen.flow_from_directory(
     '../DataSets/ADE20K_Filtered/Train/Images',
@@ -102,9 +101,9 @@ display(preview_list)
 # Create DatasetFromGenerator
 
 ds = tf.data.Dataset.from_generator(
-    img_gen.flow_from_directory, args=[flowers], 
+    train_image_generator, args=None, 
     output_types=(tf.float32, tf.float32), 
-    output_shapes=([32,256,256,3], [32,5])
+    output_shapes=([32,img_size,img_size,3], [32,img_size,img_size,3])
 )
 
 ds
