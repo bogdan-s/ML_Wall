@@ -1,9 +1,13 @@
-import tensorflow as tf
+import os
 from IPython.display import clear_output
 import IPython.display as display
 from glob import glob
 import matplotlib.pyplot as plt
+import tensorflow as tf
 from tensorflow import keras
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, Dropout, concatenate, UpSampling2D
 import pix2pix
 # from tensorflow_examples.models.pix2pix import pix2pix
 
@@ -11,9 +15,14 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 print(tf.__version__, end='\n\n')
 
-# the dataset is downloaded in data/raw/ade20k/
-IMG_SIZE = 224
+# param
+IMG_SIZE = 256
+BATCH_SIZE = 8
+OUTPUT_CHANNELS = 2
+EPOCHS = 20
+away_from_computer = True  # to show or not predictions between batches
 
+# dataset location
 Train_Images_Path = "D:/Python/DataSets/ADE20K_Filtered/Train/Images/0/"
 Val_Images_Path =  "D:/Python/DataSets/ADE20K_Filtered/Validation/Images/0/"
 
@@ -130,7 +139,7 @@ VAL_LENGTH = len(val_imgs)
 print('train lenght: ', TRAIN_LENGTH)
 print('val lenght: ', VAL_LENGTH)
 
-BATCH_SIZE = 128
+
 BUFFER_SIZE = BATCH_SIZE
 STEPS_PER_EPOCH = TRAIN_LENGTH // BATCH_SIZE
 print('steps per epoch: ', STEPS_PER_EPOCH)
@@ -138,7 +147,7 @@ print('steps per epoch: ', STEPS_PER_EPOCH)
 train = dataset['train'].map(load_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 test = dataset['test'].map(load_image_test)
 
-train_dataset = train.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).repeat()
+train_dataset = train.shuffle(BUFFER_SIZE).batch(BATCH_SIZE).cache().repeat()
 train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 test_dataset = test.batch(BATCH_SIZE)
 
@@ -170,62 +179,59 @@ for image, mask in train.take(1):
 
 SIZE = IMG_SIZE
 
-# Developing the Model (UNet-ish)
+# Unet model without pretrained weights
 
-OUTPUT_CHANNELS = 2
+def Unet(num_class, image_size):
 
-base_model = tf.keras.applications.MobileNetV2(input_shape=[SIZE, SIZE, 3], include_top=False)
+    inputs = Input(shape=[image_size, image_size, 3])
+    conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same')(inputs)
+    conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same')(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+    conv2 = Conv2D(128, 3, activation = 'relu', padding = 'same')(pool1)
+    conv2 = Conv2D(128, 3, activation = 'relu', padding = 'same')(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+    conv3 = Conv2D(256, 3, activation = 'relu', padding = 'same')(pool2)
+    conv3 = Conv2D(256, 3, activation = 'relu', padding = 'same')(conv3)
+    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+    conv4 = Conv2D(512, 3, activation = 'relu', padding = 'same')(pool3)
+    conv4 = Conv2D(512, 3, activation = 'relu', padding = 'same')(conv4)
+    drop4 = Dropout(0.5)(conv4)
+    pool4 = MaxPooling2D(pool_size=(2, 2))(drop4)
 
-# Use the activations of these layers
-layer_names = [
-    'block_1_expand_relu',   # 64x64
-    'block_3_expand_relu',   # 32x32
-    'block_6_expand_relu',   # 16x16
-    'block_13_expand_relu',  # 8x8
-    'block_16_project',      # 4x4
-]
-layers = [base_model.get_layer(name).output for name in layer_names]
+    conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same')(pool4)
+    conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same')(conv5)
+    drop5 = Dropout(0.5)(conv5)
 
-# Create the feature extraction model
-down_stack = tf.keras.Model(inputs=base_model.input, outputs=layers)
+    up6 = Conv2D(512, 2, activation = 'relu', padding = 'same')(UpSampling2D(size = (2,2))(drop5))
+    merge6 = concatenate([drop4,up6], axis = 3)
+    conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same')(merge6)
+    conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same')(conv6)
 
-down_stack.trainable = False
+    up7 = Conv2D(256, 2, activation = 'relu', padding = 'same')(UpSampling2D(size = (2,2))(conv6))
+    merge7 = concatenate([conv3,up7], axis = 3)
+    conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same')(merge7)
+    conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same')(conv7)
 
-up_stack = [
-    pix2pix.upsample(512, 3),  # 4x4 -> 8x8
-    pix2pix.upsample(256, 3),  # 8x8 -> 16x16
-    pix2pix.upsample(128, 3),  # 16x16 -> 32x32
-    pix2pix.upsample(64, 3),   # 32x32 -> 64x64
-]
+    up8 = Conv2D(128, 2, activation = 'relu', padding = 'same')(UpSampling2D(size = (2,2))(conv7))
+    merge8 = concatenate([conv2,up8], axis = 3)
+    conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same')(merge8)
+    conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same')(conv8)
 
-def unet_model(output_channels):
+    up9 = Conv2D(64, 2, activation = 'relu', padding = 'same')(UpSampling2D(size = (2,2))(conv8))
+    merge9 = concatenate([conv1,up9], axis = 3)
+    conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same')(merge9)
+    conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same')(conv9)
+    conv9 = Conv2D(2, 3, activation = 'relu', padding = 'same')(conv9)
+    conv10 = Conv2D(num_class, 1, activation = 'sigmoid')(conv9)
+    model = Model(inputs = inputs, outputs = conv10)
+    model.compile(optimizer = Adam(lr = 1e-4), loss = 'sparse_categorical_crossentropy', metrics = ['accuracy'])
 
-    # This is the last layer of the model
-    last = tf.keras.layers.Conv2DTranspose(
-        output_channels, 3, strides=2,
-        padding='same', activation='softmax')  #64x64 -> 128x128
+    return model
 
-    inputs = tf.keras.layers.Input(shape=[SIZE, SIZE, 3])
-    x = inputs
+model = Unet(OUTPUT_CHANNELS, IMG_SIZE)
 
-    # Downsampling through the model
-    skips = down_stack(x)
-    x = skips[-1]
-    skips = reversed(skips[:-1])
 
-    # Upsampling and establishing the skip connections
-    for up, skip in zip(up_stack, skips):
-        x = up(x)
-        concat = tf.keras.layers.Concatenate()
-        x = concat([x, skip])
 
-    x = last(x)
-
-    return tf.keras.Model(inputs=inputs, outputs=x)
-
-model = unet_model(OUTPUT_CHANNELS)
-model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', 
-              metrics=['accuracy'])
 
 tf.keras.utils.plot_model(model, show_shapes=True)
 
@@ -279,28 +285,33 @@ def show_predictions(dataset=None, num=1):
         # [BATCH_SIZE, SIZE, SIZE, 1] for the annotations
         # -> sample_image is [SIZE, SIZE, 1]
         # -> sample_image[tf.newaxis, ...] is [BATCH_SIZE, SIZE, SIZE, 1]
-        for image, mask in test.take(1):
+        for image, mask in test.take(3):
             sample_image, sample_mask = image, mask
         display_sample([sample_image, sample_mask,
                         create_mask(model.predict(sample_image[tf.newaxis, ...]))])
 
 
+# load weights from last save
+if os.path.exists("./U-net_model.h5"): model.load_weights("U-net_model.h5")
 
 # show_predictions(train)
 # for image, mask in train.take(2):
 #     sample_image, sample_mask = image, mask
-# show_predictions()
+show_predictions()
 
 
 class DisplayCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         clear_output(wait=True)
-        # show_predictions()
+        if not away_from_computer: show_predictions()
         print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
+        model.save_weights("U-net_model.h5")
 
-EPOCHS = 5
-VAL_SUBSPLITS = 2
+
+
 VALIDATION_STEPS = VAL_LENGTH // BATCH_SIZE
+
+
 
 model_history = model.fit(train_dataset, epochs=EPOCHS,
                           steps_per_epoch=STEPS_PER_EPOCH,
