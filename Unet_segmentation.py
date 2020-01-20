@@ -19,8 +19,10 @@ print(tf.__version__, end='\n\n')
 IMG_SIZE = 256
 BATCH_SIZE = 8
 OUTPUT_CHANNELS = 2
-EPOCHS = 20
-away_from_computer = True  # to show or not predictions between batches
+EPOCHS = 0
+away_from_computer = False  # to show or not predictions between batches
+save_model_for_inference = False # to save or not the model for inference
+
 
 # dataset location
 Train_Images_Path = "D:/Python/DataSets/ADE20K_Filtered/Train/Images/0/"
@@ -171,7 +173,7 @@ def display_sample(display_list):
 
 for image, mask in train.take(1):
     sample_image, sample_mask = image, mask
-    print(sample_mask)
+    # print(sample_mask)
 
 # display_sample([sample_image, sample_mask])
 
@@ -292,7 +294,9 @@ def show_predictions(dataset=None, num=1):
 
 
 # load weights from last save
-if os.path.exists("./U-net_model.h5"): model.load_weights("U-net_model.h5")
+if os.path.exists("./Weights/U-net_model.h5"): 
+    model.load_weights("./Weights/U-net_model.h5")
+    print("Model loded - OK")
 
 # show_predictions(train)
 # for image, mask in train.take(2):
@@ -300,12 +304,13 @@ if os.path.exists("./U-net_model.h5"): model.load_weights("U-net_model.h5")
 show_predictions()
 
 
+
 class DisplayCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         clear_output(wait=True)
         if not away_from_computer: show_predictions()
         print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
-        model.save_weights("U-net_model.h5")
+        model.save_weights("./Weights/U-net_model.h5")
 
 
 
@@ -337,3 +342,6 @@ plt.show()
 
 
 show_predictions(test_dataset, 1)
+
+if save_model_for_inference:
+    model.save('./Weights/U-net_for_inference.h5') # saves model for inference
