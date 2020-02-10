@@ -57,7 +57,11 @@ def create_mask(pred_mask: tf.Tensor) -> tf.Tensor:
         A [SIZE, SIZE, 1] mask with top 1 predictions
         for each pixels.
     """
+    print("Prediction's shape is: ")
+    print(pred_mask.shape)
     pred_mask = tf.argmax(pred_mask, axis=-1)
+    print("Prediction's shape is: ")
+    print(pred_mask.shape)
     pred_mask = pred_mask[..., tf.newaxis]
     return pred_mask[0]
 
