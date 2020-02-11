@@ -118,9 +118,10 @@ def vis_segmentation(image, seg_map):
   plt.imshow(image)
   plt.axis('off')
   plt.title('input image')
-
   plt.subplot(grid_spec[1])
+
   seg_image = label_to_color_image(seg_map).astype(np.uint8)
+  
   plt.imshow(seg_image)
   plt.axis('off')
   plt.title('segmentation map')
@@ -176,7 +177,7 @@ FULL_COLOR_MAP = label_to_color_image(FULL_LABEL_MAP)
 
 MODEL = DeepLabModel('Weights/deeplabv3_xception_ade20k_train_2018_05_29.tar.gz')
 
-
+MODEL.summary()
 
 
 def run_visualization(url):
@@ -197,7 +198,7 @@ def run_visualization(url):
 
 
 # image_url = 'D:/Python/DataSets/ADE20K_Filtered/Train/Images/0/' + 'ADE_train_00000054.jpg'
-image_url = 'D:/Python/ML_Wall/Test_images/' + '20191227_184754.jpg'
+image_url = 'D:/Python/ML_Wall/Test_images/' + 'c.jpg'
 run_visualization(image_url)
 
 

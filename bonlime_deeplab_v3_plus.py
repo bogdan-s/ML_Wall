@@ -123,8 +123,7 @@ def _conv2d_same(x, filters, prefix, stride=1, kernel_size=3, rate=1):
                       name=prefix)(x)
 
 
-def _xception_block(inputs, depth_list, prefix, skip_connection_type, stride,
-                    rate=1, depth_activation=False, return_skip=False):
+def _xception_block(inputs, depth_list, prefix, skip_connection_type, stride, rate=1, depth_activation=False, return_skip=False):
     """ Basic building block of modified Xception network
         Args:
             inputs: input tensor
@@ -218,8 +217,7 @@ def _inverted_res_block(inputs, expansion, stride, alpha, filters, block_id, ski
     return x
 
 
-def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3), classes=21, backbone='mobilenetv2',
-              OS=16, alpha=1., activation=None):
+def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3), classes=21, backbone='mobilenetv2', OS=16, alpha=1., activation=None):
     """ Instantiates the Deeplabv3+ architecture
 
     Optionally loads weights pre-trained
