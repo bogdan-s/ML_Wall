@@ -1,0 +1,438 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"canvas_",
+				"canvas_in"
+			],
+			[
+				"can",
+				"canvas_Output"
+			],
+			[
+				"mask",
+				"maskRGB"
+			],
+			[
+				"ima",
+				"IMAGE_SIZE"
+			],
+			[
+				"lo",
+				"log"
+			],
+			[
+				"U",
+				"UnetDemo"
+			],
+			[
+				"M",
+				"MODEL_PATH"
+			],
+			[
+				"Un",
+				"UnetModel"
+			],
+			[
+				"de",
+				"demoStatusElement"
+			],
+			[
+				"con",
+				"console"
+			],
+			[
+				"img",
+				"imgElement"
+			],
+			[
+				"uploaded",
+				"uploadedFile"
+			],
+			[
+				"image",
+				"imagetype"
+			],
+			[
+				"uplo",
+				"uploadedFile"
+			],
+			[
+				"get",
+				"getElementById"
+			],
+			[
+				"in",
+				"input\tTag"
+			],
+			[
+				"l",
+				"loadFile"
+			],
+			[
+				"fun",
+				"function"
+			],
+			[
+				"squ",
+				"squeeze\tfunction ⟠"
+			],
+			[
+				"rezi",
+				"resize\tfunction ⟠"
+			],
+			[
+				"save",
+				"save_model_for_inference"
+			],
+			[
+				"se",
+				"seg_map\tunknown ⟠"
+			],
+			[
+				"tes",
+				"test\tCsvDataset | Dataset | FixedLengthRecordDataset | TFRecordDataset | TextLineDataset ⟠"
+			],
+			[
+				"Tu",
+				"True"
+			],
+			[
+				"I",
+				"IMG_SIZE\tint ⟠"
+			],
+			[
+				"sam",
+				"sample_mask\tunknown ⟠"
+			],
+			[
+				"S",
+				"sparse_categorical_crossentropy(…)\tfunction ⟠"
+			],
+			[
+				"Ba",
+				"BATCH_SIZE\tint ⟠"
+			],
+			[
+				"tra",
+				"TRAIN_LENGTH\tint ⟠"
+			],
+			[
+				"Tra",
+				"Train_Images_Path"
+			],
+			[
+				"im",
+				"img_size"
+			],
+			[
+				"inpu",
+				"input_mask_arr"
+			],
+			[
+				"inp",
+				"input_mask_arr"
+			],
+			[
+				"input",
+				"input_image_arr"
+			],
+			[
+				"trai",
+				"train_generator"
+			],
+			[
+				"base",
+				"base_model"
+			],
+			[
+				"lis",
+				"list_ds"
+			],
+			[
+				"dat",
+				"data_dir"
+			],
+			[
+				"Ima",
+				"ImageDataGenerator"
+			],
+			[
+				"des",
+				"dest"
+			],
+			[
+				"pro",
+				"process"
+			],
+			[
+				"fil",
+				"file_count"
+			],
+			[
+				"y",
+				"y1"
+			],
+			[
+				"x",
+				"x1"
+			],
+			[
+				"img_",
+				"img_path"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "Unet_segmentation.py",
+			"settings":
+			{
+				"buffer_size": 11562,
+				"line_ending": "Windows"
+			}
+		}
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"con",
+				"Conda: Activate Environment"
+			],
+			[
+				"conda",
+				"Conda: Activate Environment"
+			],
+			[
+				"cond",
+				"Conda: Activate Environment"
+			],
+			[
+				"kit",
+				"Kite: Show Function Signatures"
+			],
+			[
+				"Package Control: ",
+				"Package Control: List Packages"
+			],
+			[
+				"package control: ins",
+				"Package Control: Install Package"
+			]
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 157.0,
+		"history":
+		[
+			"import urllib.request,os,hashlib; h = '6f4c264a24d933ce70df5dedcf1dcaee' + 'ebe013ee18cced0ef93d5f746d80ef60'; pf = 'Package Control.sublime-package'; ipp = sublime.installed_packages_path(); urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) ); by = urllib.request.urlopen( 'http://packagecontrol.io/' + pf.replace(' ', '%20')).read(); dh = hashlib.sha256(by).hexdigest(); print('Error validating download (got %s instead of %s), please try manual install' % (dh, h)) if dh != h else open(os.path.join( ipp, pf), 'wb' ).write(by)"
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/C/Users/bogdan-PC/.jupyter/jupyter_notebook_config.py",
+		"/D/Python/ML_Wall_JS/js/scripts.js",
+		"/D/Python/ML_Wall_JS/index.html",
+		"/D/Python/ML_Wall/Speed_Test.py",
+		"/D/Python/ML_Wall/bonlime_deeplab_v3_plus.py",
+		"/D/Python/ML_Wall/Unet_segmentation_Test.py",
+		"/C/Users/BOGDAN~1/AppData/Local/Temp/kite_tutorial.py",
+		"/D/Python/ML_Wall/pix2pix.py",
+		"/C/Users/bogdan-PC/Anaconda3/envs/TF2_36/Lib/site-packages/pydot.py",
+		"/D/Python/ML_Wall/TF2_GPU.py",
+		"/D/Python/ML_Wall/yann_segmentation_v2.py",
+		"/D/Python/ML_Wall/model.png",
+		"/C/Users/bogdan-PC/Anaconda3/Lib/site-packages/networkx/drawing/tests/test_pydot.py",
+		"/C/Users/bogdan-PC/Anaconda3/Lib/site-packages/networkx/drawing/nx_pydot.py",
+		"/D/Proiecte/AR/BioDeck/Test/Test1/scripts/script.js",
+		"/D/Python/ML_Wall/PyTorch_GPU_36.py",
+		"/D/Python/ML_Wall/models/segmentation/deeplabv3.py",
+		"/D/Python/ML_Wall/models/segmentation/_utils.py",
+		"/D/Python/ML_Wall/datahandler.py",
+		"/D/Python/ML_Wall/trainer.py",
+		"/C/Users/bogdan-PC/Downloads/tv-training-code.py",
+		"/D/Python/ML_Wall/filter_ADE20K_dataset.py",
+		"/C/Users/bogdan-PC/Desktop/test.py",
+		"/D/Python/Udemy/OpenCV/Udemy_OpenCV.py",
+		"/D/Python/Kaggle/Severstal/read_data.py",
+		"/C/Users/bogdan-PC/AppData/Roaming/Sublime Text 3/Packages/User/env_36.sublime-build",
+		"/C/Users/bogdan-PC/AppData/Roaming/Sublime Text 3/Packages/Conda/Conda (Windows).sublime-settings",
+		"/C/Users/bogdan-PC/AppData/Roaming/Sublime Text 3/Packages/Anaconda/Anaconda.sublime-settings",
+		"/C/Users/bogdan-PC/AppData/Roaming/Sublime Text 3/Packages/Anaconda/README.md",
+		"/C/Program Files/Sublime Text 3/Packages/Python.sublime-package"
+	],
+	"find":
+	{
+		"height": 41.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "Unet_segmentation.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 11562,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								10722,
+								10722
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 3396.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 29.0
+	},
+	"input":
+	{
+		"height": 41.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "Packages/Conda/Conda.sublime-build",
+	"project": "Unet_segmentation.sublime-project",
+	"replace":
+	{
+		"height": 54.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": false,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 291.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

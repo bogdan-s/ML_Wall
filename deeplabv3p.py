@@ -33,7 +33,8 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.activations import relu
 from tensorflow.keras.layers import Layer, InputSpec, Conv2D, DepthwiseConv2D, UpSampling2D, ZeroPadding2D, Lambda, AveragePooling2D, Input, Activation, Concatenate, Add, Reshape, BatchNormalization, Dropout 
 from tensorflow.keras.utils import get_source_inputs
-from tensorflow.keras import backend as K
+# from tensorflow.keras import backend as K
+from tensorflow.keras.optimizers import Adam
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
@@ -44,7 +45,7 @@ IMG_SIZE = 512
 BATCH_SIZE = 8
 OUTPUT_CHANNELS = 2
 EPOCHS = 0
-away_from_computer = False  # to show or not predictions between batches
+away_from_computer = True  # to show or not predictions between batches
 save_model_for_inference = False # to save or not the model for inference
 
 # WEIGHTS_PATH_MOBILE = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.1/deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels.h5"
@@ -369,9 +370,9 @@ def Deeplabv3(weights=None, input_tensor=None, infer = False, input_shape=(512, 
                          '`None` (random initialization) or `pascal_voc` '
                          '(pre-trained on PASCAL VOC)')
 
-    if K.backend() != 'tensorflow':
-        raise RuntimeError('The Deeplabv3+ model is only available with '
-                           'the TensorFlow backend.')
+    # if K.backend() != 'tensorflow':
+    #     raise RuntimeError('The Deeplabv3+ model is only available with '
+    #                        'the TensorFlow backend.')
 
     if not (backbone in {'xception', 'mobilenetv2'}):
         raise ValueError('The `backbone` argument should be either '
@@ -387,16 +388,16 @@ def Deeplabv3(weights=None, input_tensor=None, infer = False, input_shape=(512, 
     
     
     
-    batches_input = Lambda(lambda x: x/127.5 - 1)(img_input)
+    # batches_input = Lambda(lambda x: x/127.5 - 1)(img_input)
 
-
+    print(img_input)
  
     OS = 8
     first_block_filters = _make_divisible(32 * alpha, 8)
     x = Conv2D(first_block_filters,
                kernel_size=3,
                strides=(2, 2), padding='same',
-               use_bias=False, name='Conv')(batches_input)
+               use_bias=False, name='Conv')(img_input)
     x = BatchNormalization(
         epsilon=1e-3, momentum=0.999, name='Conv_BN')(x)
     
@@ -580,7 +581,7 @@ if os.path.exists("./Weights/DeeplabV3Plus_Wall.h5"):
     print("Model loded - OK")
 
 
-show_predictions()
+# show_predictions()
 
 
 
@@ -595,7 +596,7 @@ class DisplayCallback(tf.keras.callbacks.Callback):
 
 VALIDATION_STEPS = VAL_LENGTH // BATCH_SIZE
 
-
+model.compile(optimizer = Adam(lr = 1e-4), loss = 'sparse_categorical_crossentropy', metrics = ['accuracy'])
 
 model_history = model.fit(train_dataset, epochs=EPOCHS,
                           steps_per_epoch=STEPS_PER_EPOCH,
@@ -604,23 +605,25 @@ model_history = model.fit(train_dataset, epochs=EPOCHS,
                           callbacks=[DisplayCallback()])
 
 
-loss = model_history.history['loss']
-val_loss = model_history.history['val_loss']
+print('\nhistory dict:', model_history.history)
 
-epochs = range(EPOCHS)
+# loss = model_history.history['loss']
+# val_loss = model_history.history['val_loss']
 
-plt.figure()
-plt.plot(epochs, loss, 'r', label='Training loss')
-plt.plot(epochs, val_loss, 'bo', label='Validation loss')
-plt.title('Training and Validation Loss')
-plt.xlabel('Epoch')
-plt.ylabel('Loss Value')
-plt.ylim([0, 1])
-plt.legend()
-plt.show()
+# epochs = range(EPOCHS)
+
+# plt.figure()
+# plt.plot(epochs, loss, 'r', label='Training loss')
+# plt.plot(epochs, val_loss, 'bo', label='Validation loss')
+# plt.title('Training and Validation Loss')
+# plt.xlabel('Epoch')
+# plt.ylabel('Loss Value')
+# plt.ylim([0, 1])
+# plt.legend()
+# plt.show()
 
 
-show_predictions(test_dataset, 1)
+# show_predictions(test_dataset, 1)
 
 if save_model_for_inference:
     model.save('./Weights/DeeplabV3Plus_Wall_for_inference.h5') # saves model for inference
