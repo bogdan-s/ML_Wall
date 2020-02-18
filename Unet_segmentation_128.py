@@ -11,6 +11,8 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, Dropout, concatenate, UpSampling2D
 import pix2pix
+
+
 # from tensorflow_examples.models.pix2pix import pix2pix
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
@@ -238,9 +240,7 @@ model = Unet(OUTPUT_CHANNELS, IMG_SIZE)
 
 
 tf.keras.utils.plot_model(model, show_shapes=True)
-data_folder = Path("c:/TFlogs/fit/")
-log_dir=data_folder / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
 
 
 def create_mask(pred_mask: tf.Tensor) -> tf.Tensor:
@@ -293,6 +293,7 @@ def show_predictions(dataset=None, num=1):
         # -> sample_image[tf.newaxis, ...] is [BATCH_SIZE, SIZE, SIZE, 1]
         for image, mask in test.take(3):
             sample_image, sample_mask = image, mask
+        print(type(sample_image[tf.newaxis, ...]))
         display_sample([sample_image, sample_mask,
                         create_mask(model.predict(sample_image[tf.newaxis, ...]))])
 
@@ -305,7 +306,17 @@ if os.path.exists("./Weights/U-net_128_model.h5"):
 # show_predictions(train)
 # for image, mask in train.take(2):
 #     sample_image, sample_mask = image, mask
+
+
 show_predictions()
+
+
+# CallBacks
+
+#  - Tensorflow
+data_folder = Path("c:/TFlogs/fit/")
+log_dir=data_folder / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")  #folder for tensorboard
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
 
 
