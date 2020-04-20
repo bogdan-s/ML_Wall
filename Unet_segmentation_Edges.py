@@ -5,10 +5,12 @@ from glob import glob
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
+from keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, Dropout, concatenate, UpSampling2D
 import pix2pix
+import tensorflow_addons as tfa
 # from tensorflow_examples.models.pix2pix import pix2pix
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
@@ -16,8 +18,8 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 print(tf.__version__, end='\n\n')
 
 # param
-IMG_SIZE = 256
-BATCH_SIZE = 8
+IMG_SIZE = 128
+BATCH_SIZE = 16
 OUTPUT_CHANNELS = 2
 EPOCHS = 10
 away_from_computer = False  # to show or not predictions between batches
@@ -181,10 +183,55 @@ for image, mask in train.take(1):
 
 SIZE = IMG_SIZE
 
+#####################################################################   LOSSES
+
+def jaccard_distance(y_true, y_pred, smooth=100):
+    """ Jaccard distance for semantic segmentation.
+    Also known as the intersection-over-union loss.
+    This loss is useful when you have unbalanced numbers of pixels within an image
+    because it gives all classes equal weight. However, it is not the defacto
+    standard for image segmentation.
+    For example, assume you are trying to predict if
+    each pixel is cat, dog, or background.
+    You have 80% background pixels, 10% dog, and 10% cat.
+    If the model predicts 100% background
+    should it be be 80% right (as with categorical cross entropy)
+    or 30% (with this loss)?
+    The loss has been modified to have a smooth gradient as it converges on zero.
+    This has been shifted so it converges on 0 and is smoothed to avoid exploding
+    or disappearing gradient.
+    Jaccard = (|X & Y|)/ (|X|+ |Y| - |X & Y|)
+            = sum(|A*B|)/(sum(|A|)+sum(|B|)-sum(|A*B|))
+    # Arguments
+        y_true: The ground truth tensor.
+        y_pred: The predicted tensor
+        smooth: Smoothing factor. Default is 100.
+    # Returns
+        The Jaccard distance between the two tensors.
+    # References
+        - [What is a good evaluation measure for semantic segmentation?](
+           http://www.bmva.org/bmvc/2013/Papers/paper0032/paper0032.pdf)
+    """
+    intersection = K.sum(y_true * y_pred)
+    sum_ = K.sum(y_true + y_pred)
+    jac = (intersection + smooth) / (sum_ - intersection + smooth)
+    return (1 - jac) * smooth
+
 # Dice Loss implementation
 
-def dice_loss():
-    pass
+def dice_coef(y_true, y_pred, smooth = 1):
+    """
+    Dice = (2*|X & Y|)/ (|X|+ |Y|)
+         =  2*sum(|A*B|)/(sum(A^2)+sum(B^2))
+    ref: https://arxiv.org/pdf/1606.04797v1.pdf
+    """
+    # y_true_f = K.flatten(y_true)
+    # y_pred_f = K.flatten(y_pred)
+    intersection = K.sum(y_true * y_pred)
+    return (2. * intersection + smooth) / (K.sum(y_true) + K.sum(y_pred) + smooth)
+
+def dice_coef_loss(y_true, y_pred):
+    return 1.0 - dice_coef(y_true, y_pred)
 
 # Unet model without pretrained weights
 
@@ -231,7 +278,7 @@ def Unet(num_class, image_size):
     conv9 = Conv2D(2, 3, activation = 'relu', padding = 'same')(conv9)
     conv10 = Conv2D(num_class, 1, activation = 'sigmoid')(conv9)
     model = Model(inputs = inputs, outputs = conv10)
-    model.compile(optimizer = Adam(lr = 1e-4), loss = dice_loss , metrics = ['accuracy'])
+    model.compile(optimizer = Adam(lr = 1e-4), loss = [dice_coef_loss, 'binary_crossentropy'] , metrics = [ dice_coef, 'acc'])
 
     return model
 
