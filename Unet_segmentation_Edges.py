@@ -181,6 +181,11 @@ for image, mask in train.take(1):
 
 SIZE = IMG_SIZE
 
+# Dice Loss implementation
+
+def dice_loss():
+    pass
+
 # Unet model without pretrained weights
 
 def Unet(num_class, image_size):
@@ -226,7 +231,7 @@ def Unet(num_class, image_size):
     conv9 = Conv2D(2, 3, activation = 'relu', padding = 'same')(conv9)
     conv10 = Conv2D(num_class, 1, activation = 'sigmoid')(conv9)
     model = Model(inputs = inputs, outputs = conv10)
-    model.compile(optimizer = Adam(lr = 1e-4), loss = 'sparse_categorical_crossentropy', metrics = ['accuracy'])
+    model.compile(optimizer = Adam(lr = 1e-4), loss = dice_loss , metrics = ['accuracy'])
 
     return model
 
