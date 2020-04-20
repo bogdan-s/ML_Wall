@@ -318,7 +318,7 @@ model_history = model.fit(train_dataset, epochs=EPOCHS,
                           validation_data=test_dataset,
                           callbacks=[DisplayCallback()])
 
-
+print('\nhistory dict:', model_history.history)
 loss = model_history.history['loss']
 val_loss = model_history.history['val_loss']
 

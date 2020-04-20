@@ -1,6 +1,4 @@
 import os
-from pathlib import Path
-import datetime
 from IPython.display import clear_output
 import IPython.display as display
 from glob import glob
@@ -11,8 +9,6 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, Dropout, concatenate, UpSampling2D
 import pix2pix
-
-
 # from tensorflow_examples.models.pix2pix import pix2pix
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
@@ -20,11 +16,11 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 print(tf.__version__, end='\n\n')
 
 # param
-IMG_SIZE = 128
-BATCH_SIZE = 32
+IMG_SIZE = 256
+BATCH_SIZE = 8
 OUTPUT_CHANNELS = 2
-EPOCHS = 20
-away_from_computer = True  # to show or not predictions between batches
+EPOCHS = 10
+away_from_computer = False  # to show or not predictions between batches
 save_model_for_inference = False # to save or not the model for inference
 
 
@@ -42,8 +38,8 @@ def parse_image(img_path):
     image = tf.image.decode_jpeg(image, channels=3)
     image = tf.image.convert_image_dtype(image, tf.uint8)
     
-    mask_path = tf.strings.regex_replace(img_path, "Images", "Masks")
-    mask_path = tf.strings.regex_replace(mask_path, ".jpg", "_seg.png")
+    mask_path = tf.strings.regex_replace(img_path, "Images", "Edges")
+    mask_path = tf.strings.regex_replace(mask_path, ".jpg", "_edg.png")
     mask = tf.io.read_file(mask_path)
     mask = tf.image.decode_png(mask, channels=1)
     
@@ -293,30 +289,19 @@ def show_predictions(dataset=None, num=1):
         # -> sample_image[tf.newaxis, ...] is [BATCH_SIZE, SIZE, SIZE, 1]
         for image, mask in test.take(3):
             sample_image, sample_mask = image, mask
-        print(type(sample_image[tf.newaxis, ...]))
         display_sample([sample_image, sample_mask,
                         create_mask(model.predict(sample_image[tf.newaxis, ...]))])
 
 
 # load weights from last save
-if os.path.exists("./Weights/U-net_128_model.h5"): 
-    model.load_weights("./Weights/U-net_128_model.h5")
+if os.path.exists("./Weights/U-net_model_edges.h5"): 
+    model.load_weights("./Weights/U-net_model_edges.h5")
     print("Model loded - OK")
 
 # show_predictions(train)
 # for image, mask in train.take(2):
 #     sample_image, sample_mask = image, mask
-
-
 show_predictions()
-
-
-# CallBacks
-
-#  - TensorBoard
-data_folder = Path("c:/TFlogs/fit/")
-log_dir=data_folder / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")  #folder for tensorboard
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
 
 
@@ -325,7 +310,7 @@ class DisplayCallback(tf.keras.callbacks.Callback):
         clear_output(wait=True)
         if not away_from_computer: show_predictions()
         print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
-        model.save_weights("./Weights/U-net_128_model.h5")
+        model.save_weights("./Weights/U-net_model_edges.h5")
 
 
 
@@ -337,9 +322,10 @@ model_history = model.fit(train_dataset, epochs=EPOCHS,
                           steps_per_epoch=STEPS_PER_EPOCH,
                           validation_steps=VALIDATION_STEPS,
                           validation_data=test_dataset,
-                          callbacks=[DisplayCallback(), tensorboard_callback])
+                          callbacks=[DisplayCallback()])
+model_history.summary()
 
-
+print('\nhistory dict:', model_history.history)
 loss = model_history.history['loss']
 val_loss = model_history.history['val_loss']
 
@@ -359,4 +345,4 @@ plt.show()
 show_predictions(test_dataset, 1)
 
 if save_model_for_inference:
-    model.save('./Weights/U-net_for_inference.h5') # saves model for inference
+    model.save('./Weights/U-net_for_inference_edges.h5') # saves model for inference

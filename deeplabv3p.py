@@ -520,6 +520,7 @@ def Deeplabv3(weights=None, input_tensor=None, infer = False, input_shape=(512, 
 
 model = Deeplabv3()
 model.summary()
+tf.keras.utils.plot_model(model, show_shapes=True)
 
 def create_mask(pred_mask: tf.Tensor) -> tf.Tensor:
     """Return a filter mask with the top 1 predicitons
