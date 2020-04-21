@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 import os
 import concurrent.futures
 
-what_stage = 2    # select the stage
+what_stage = 3    # select the stage
 
 """
 Fist stage, that filled the gaps in the masks and created thin edges
@@ -79,37 +79,60 @@ if what_stage == 1:
 Second stage - make edges thicker and blur them so they can be visible when resized to lower res
 """
 
-edges_source = 'D:/Python/DataSets/ADE20K_Filtered/Train/Edges/0/'
+if what_stage == 2:
 
-def plot_images(img, edges):
-    # print("++++++++++++++")
-    plt.subplot(121),plt.imshow(img, cmap = 'gray')
-    plt.title('Original Image'), plt.xticks([]), plt.yticks([])
-    plt.subplot(122),plt.imshow(edges, cmap = 'gray')
-    plt.title('Edge Image'), plt.xticks([]), plt.yticks([])
-    plt.show()
+    edges_source = 'D:/Python/DataSets/ADE20K_Filtered/Train/Edges/0/'
 
-def dialate_blur(img_path):
-    # print("----------")
-    img = cv2.imread(img_path,0)
-    kernel = np.ones((5,5),np.uint8)
+    def plot_images(img, edges):
+        # print("++++++++++++++")
+        plt.subplot(121),plt.imshow(img, cmap = 'gray')
+        plt.title('Original Image'), plt.xticks([]), plt.yticks([])
+        plt.subplot(122),plt.imshow(edges, cmap = 'gray')
+        plt.title('Edge Image'), plt.xticks([]), plt.yticks([])
+        plt.show()
 
-    edges = cv2.dilate(img, kernel, iterations = 2)
-    edges = cv2.GaussianBlur(edges, (5,5), 3)
-    # plot_images(img, edges)
+    def dialate_blur(img_path):
+        # print("----------")
+        img = cv2.imread(img_path,0)
+        kernel = np.ones((5,5),np.uint8)
 
-    cv2.imwrite(img_path, edges)
+        edges = cv2.dilate(img, kernel, iterations = 2)
+        edges = cv2.GaussianBlur(edges, (5,5), 3)
+        # plot_images(img, edges)
 
-names = []
-old_mask_paths = []
-for root, dirs, files in os.walk(edges_source):
-    for img in files:
-        names.append(edges_source+img)
-        # print(names)
-        # break
+        cv2.imwrite(img_path, edges)
 
-# dialate_blur(names[0])
-if __name__ == '__main__':
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        future = executor.map(dialate_blur, names)
+    names = []
+    old_mask_paths = []
+    for root, dirs, files in os.walk(edges_source):
+        for img in files:
+            names.append(edges_source+img)
+            # print(names)
+            # break
 
+    # dialate_blur(names[0])
+    if __name__ == '__main__':
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            future = executor.map(dialate_blur, names)
+
+
+if what_stage == 3:
+
+    edges_source = 'D:/Python/DataSets/ADE20K_Filtered/Train/Edges/0/'
+
+    def save_rgb(img_path):
+        # print("----------")
+        img = cv2.imread(img_path,1)
+        cv2.imwrite(img_path, img)
+
+    names = []
+    old_mask_paths = []
+    for root, dirs, files in os.walk(edges_source):
+        for img in files:
+            names.append(edges_source+img)
+            # print(names)
+            # break
+
+    if __name__ == '__main__':
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            future = executor.map(save_rgb, names)

@@ -304,7 +304,7 @@ class DisplayCallback(tf.keras.callbacks.Callback):
         clear_output(wait=True)
         if not away_from_computer: show_predictions()
         print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
-        model.save_weights("./Weights/U-net_128_model.h5")
+        # model.save_weights("./Weights/U-net_128_model.h5")
 
 
 

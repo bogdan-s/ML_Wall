@@ -19,7 +19,7 @@ print(tf.__version__, end='\n\n')
 
 # param
 IMG_SIZE = 128
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 OUTPUT_CHANNELS = 2
 EPOCHS = 10
 away_from_computer = False  # to show or not predictions between batches
@@ -40,8 +40,8 @@ def parse_image(img_path):
     image = tf.image.decode_jpeg(image, channels=3)
     image = tf.image.convert_image_dtype(image, tf.uint8)
     
-    mask_path = tf.strings.regex_replace(img_path, "Images", "Edges")
-    mask_path = tf.strings.regex_replace(mask_path, ".jpg", "_edg.png")
+    mask_path = tf.strings.regex_replace(img_path, "Images", "New_Masks")
+    mask_path = tf.strings.regex_replace(mask_path, ".jpg", "_seg.png")
     mask = tf.io.read_file(mask_path)
     mask = tf.image.decode_png(mask, channels=1)
     
@@ -183,9 +183,31 @@ for image, mask in train.take(1):
 
 SIZE = IMG_SIZE
 
+def create_mask(pred_mask: tf.Tensor) -> tf.Tensor:
+    """Return a filter mask with the top 1 predicitons
+    only.
+
+    Parameters
+    ----------
+    pred_mask : tf.Tensor
+        A [SIZE, SIZE, N_CLASS] tensor. For each pixel we have
+        N_CLASS values (vector) which represents the probability of the pixel
+        being these classes. Example: A pixel with the vector [0.0, 0.0, 1.0]
+        has been predicted class 2 with a probability of 100%.
+
+    Returns
+    -------
+    tf.Tensor
+        A [SIZE, SIZE, 1] mask with top 1 predictions
+        for each pixels.
+    """
+    pred_mask = tf.argmax(pred_mask, axis=-1)
+    pred_mask = pred_mask[..., tf.newaxis]
+    return pred_mask[0]
+
 #####################################################################   LOSSES
 
-def jaccard_distance(y_true, y_pred, smooth=100):
+def jaccard_distance(y_true, y_pred, smooth=10):
     """ Jaccard distance for semantic segmentation.
     Also known as the intersection-over-union loss.
     This loss is useful when you have unbalanced numbers of pixels within an image
@@ -212,8 +234,8 @@ def jaccard_distance(y_true, y_pred, smooth=100):
         - [What is a good evaluation measure for semantic segmentation?](
            http://www.bmva.org/bmvc/2013/Papers/paper0032/paper0032.pdf)
     """
-    intersection = K.sum(y_true * y_pred)
-    sum_ = K.sum(y_true + y_pred)
+    intersection = K.sum(K.abs(y_true * y_pred))
+    sum_ = K.sum(K.abs(y_true) + K.abs(y_pred))
     jac = (intersection + smooth) / (sum_ - intersection + smooth)
     return (1 - jac) * smooth
 
@@ -233,52 +255,47 @@ def dice_coef(y_true, y_pred, smooth = 1):
 def dice_coef_loss(y_true, y_pred):
     return 1.0 - dice_coef(y_true, y_pred)
 
+
 # Unet model without pretrained weights
 
 def Unet(num_class, image_size):
 
     inputs = Input(shape=[image_size, image_size, 3])
     conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same')(inputs)
-    conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same')(conv1)
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
     conv2 = Conv2D(128, 3, activation = 'relu', padding = 'same')(pool1)
-    conv2 = Conv2D(128, 3, activation = 'relu', padding = 'same')(conv2)
     pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
     conv3 = Conv2D(256, 3, activation = 'relu', padding = 'same')(pool2)
-    conv3 = Conv2D(256, 3, activation = 'relu', padding = 'same')(conv3)
     pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
     conv4 = Conv2D(512, 3, activation = 'relu', padding = 'same')(pool3)
-    conv4 = Conv2D(512, 3, activation = 'relu', padding = 'same')(conv4)
     drop4 = Dropout(0.5)(conv4)
     pool4 = MaxPooling2D(pool_size=(2, 2))(drop4)
 
     conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same')(pool4)
-    conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same')(conv5)
     drop5 = Dropout(0.5)(conv5)
 
     up6 = Conv2D(512, 2, activation = 'relu', padding = 'same')(UpSampling2D(size = (2,2))(drop5))
     merge6 = concatenate([drop4,up6], axis = 3)
     conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same')(merge6)
-    conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same')(conv6)
 
     up7 = Conv2D(256, 2, activation = 'relu', padding = 'same')(UpSampling2D(size = (2,2))(conv6))
     merge7 = concatenate([conv3,up7], axis = 3)
     conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same')(merge7)
-    conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same')(conv7)
+
 
     up8 = Conv2D(128, 2, activation = 'relu', padding = 'same')(UpSampling2D(size = (2,2))(conv7))
     merge8 = concatenate([conv2,up8], axis = 3)
     conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same')(merge8)
-    conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same')(conv8)
+
 
     up9 = Conv2D(64, 2, activation = 'relu', padding = 'same')(UpSampling2D(size = (2,2))(conv8))
     merge9 = concatenate([conv1,up9], axis = 3)
     conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same')(merge9)
-    conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same')(conv9)
+ 
     conv9 = Conv2D(2, 3, activation = 'relu', padding = 'same')(conv9)
     conv10 = Conv2D(num_class, 1, activation = 'sigmoid')(conv9)
     model = Model(inputs = inputs, outputs = conv10)
-    model.compile(optimizer = Adam(lr = 1e-4), loss = [dice_coef_loss, 'binary_crossentropy'] , metrics = [ dice_coef, 'acc'])
+    model.compile(optimizer = Adam(lr = 1e-4), loss = dice_coef_loss,  metrics = ['accuracy', dice_coef])
 
     return model
 
@@ -291,27 +308,7 @@ tf.keras.utils.plot_model(model, show_shapes=True)
 
 
 
-def create_mask(pred_mask: tf.Tensor) -> tf.Tensor:
-    """Return a filter mask with the top 1 predicitons
-    only.
 
-    Parameters
-    ----------
-    pred_mask : tf.Tensor
-        A [SIZE, SIZE, N_CLASS] tensor. For each pixel we have
-        N_CLASS values (vector) which represents the probability of the pixel
-        being these classes. Example: A pixel with the vector [0.0, 0.0, 1.0]
-        has been predicted class 2 with a probability of 100%.
-
-    Returns
-    -------
-    tf.Tensor
-        A [SIZE, SIZE, 1] mask with top 1 predictions
-        for each pixels.
-    """
-    pred_mask = tf.argmax(pred_mask, axis=-1)
-    pred_mask = pred_mask[..., tf.newaxis]
-    return pred_mask[0]
 
 def show_predictions(dataset=None, num=1):
     """
@@ -346,9 +343,9 @@ def show_predictions(dataset=None, num=1):
 
 
 # load weights from last save
-if os.path.exists("./Weights/U-net_model_edges.h5"): 
-    model.load_weights("./Weights/U-net_model_edges.h5")
-    print("Model loded - OK")
+# if os.path.exists("./Weights/U-net_model_edges.h5"): 
+#     model.load_weights("./Weights/U-net_model_edges.h5")
+#     print("Model loded - OK")
 
 # show_predictions(train)
 # for image, mask in train.take(2):
@@ -362,7 +359,7 @@ class DisplayCallback(tf.keras.callbacks.Callback):
         clear_output(wait=True)
         if not away_from_computer: show_predictions()
         print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
-        model.save_weights("./Weights/U-net_model_edges.h5")
+        # model.save_weights("./Weights/U-net_model_edges.h5")
 
 
 
