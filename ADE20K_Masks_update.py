@@ -2,14 +2,14 @@
 Refine the masks and create separate edges mask
 """
 
-
+from pathlib import Path
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 import os
 import concurrent.futures
 
-what_stage = 3    # select the stage
+what_stage = 1    # select the stage
 
 """
 Fist stage, that filled the gaps in the masks and created thin edges
@@ -17,21 +17,24 @@ Fist stage, that filled the gaps in the masks and created thin edges
 
 if what_stage == 1:
 
-    old_masks_path = 'D:/Python/DataSets/ADE20K_Filtered/Train/Masks/0/'
-    noGaps_dest = 'D:/Python/DataSets/ADE20K_Filtered/Train/New_Masks/0/'
-    edges_dest = 'D:/Python/DataSets/ADE20K_Filtered/Train/Edges/0/'
+    old_masks_path = r'D:\Python\DataSets\ADE20K_Filtered\Validation\Masks\0'
+    noGaps_dest = r'D:\Python\DataSets\ADE20K_Filtered\Validation\New_Masks\0'
+    edges_dest = r'D:\Python\DataSets\ADE20K_Filtered\Validation\Edges\0'
 
-    rgb_imgs = 'D:/Python/DataSets/ADE20K_Filtered/Train/Images/0/'
+    rgb_imgs = r'D:\Python\DataSets\ADE20K_Filtered\Validation\Images\0'
 
     def write_new_masks(img, NoGaps, edges, img_name):
         # plot_images(img, NoGaps, edges)
-        # print("dsfasdfasd")
-        cv2.imwrite(noGaps_dest + img_name + '_seg.png', NoGaps)
-        cv2.imwrite(edges_dest + img_name + '_edg.png', edges)
+        # print(noGaps_dest + '\\' + img_name + '_seg.png')
+        cv2.imwrite(noGaps_dest + '\\' + img_name + '_seg.png', NoGaps)
+        # cv2.imwrite(edges_dest + img_name + '_edg.png', edges)
         print(img_name)
 
     def create_new_masks(img_path, img_name):
-        img = cv2.imread(img_path,0)
+        # print("image to read: {}".format(img_path))
+        img = cv2.imread (img_path, -1)
+        # cv2.imshow('img', img)
+        print(img_path)
         # remove small gaps in masks
         kernel = np.ones((3,3),np.uint8)
         NoGaps = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
@@ -43,13 +46,13 @@ if what_stage == 1:
             [-1, 8, -1],
             [-1, -1, -1]), dtype="float32")/25
 
-
-        edges = cv2.filter2D(NoGaps,-1, kernel)
-        h, w = edges.shape
-        for i in range(h):
-            for j in range(w):
-                if edges[i, j] > 0:
-                    edges[i, j] = 255 #make edges white (no intermediate values)
+        edges = None
+        # edges = cv2.filter2D(NoGaps,-1, kernel)
+        # h, w = edges.shape
+        # for i in range(h):
+        #     for j in range(w):
+        #         if edges[i, j] > 0:
+        #             edges[i, j] = 255 #make edges white (no intermediate values)
         # print("writing")
         write_new_masks(img, NoGaps, edges, img_name)
 
@@ -69,7 +72,9 @@ if what_stage == 1:
         for img in files:
             mask_names.append(img[:-4])
             old_mask_paths.append(os.path.join(old_masks_path, img[:-4] + "_seg.png"))
-            # break
+            
+    
+    # create_new_masks(old_mask_paths[0], mask_names[0])
     if __name__ == '__main__':
         with concurrent.futures.ProcessPoolExecutor() as executor:
             future = executor.map(create_new_masks, old_mask_paths, mask_names)
