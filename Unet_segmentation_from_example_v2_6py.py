@@ -16,6 +16,7 @@ from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, Dropout, concat
 import pix2pix
 import tensorflow_addons as tfa
 
+
 tf.keras.backend.clear_session()
 
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
@@ -339,6 +340,10 @@ output = Conv2D(OUTPUT_CHANNELS, 1, activation = 'softmax')(conv_dec_4)
 model = tf.keras.Model(inputs = inputs, outputs = output)
 
 
+def DifferentiableArgmaxApproximation(x, beta = 1e2):
+    y = tf.reduce_sum(tf.cumsum(tf.ones_like(x)) * tf.exp(beta * x) / tf.reduce_sum(tf.exp(beta * x))) - 1
+    return y
+
 
 class MaskMeanIoU(tf.keras.metrics.MeanIoU):
     #                                                                                                    Mean Intersection over Union
@@ -350,32 +355,30 @@ class MaskMeanIoU(tf.keras.metrics.MeanIoU):
 def tversky(y_true, y_pred):
     alpha = 0.7
     smooth = 1.0
-    print("----------------------------------------------")
-    print("y_true: {}".format(y_true))
-    print("y_pred: {}".format(y_pred))
-    y_pred_pos = y_pred[:,:,:,-1]                               #select only the class values, not both the BG and class
-    y_pred_pos = y_pred_pos[..., tf.newaxis]
-    print("y_pred_pos: {}".format(y_pred_pos))
-    print("count non zero: {}".format(tf.math.count_nonzero(y_true)))
-    print("count non zero: {}".format(tf.math.count_nonzero(y_pred_pos)))
     y_true_pos = tf.reshape(y_true, [-1])
-    y_pred_pos = tf.reshape(y_pred_pos, [-1])
-    print("y_true_pos reshape: {}".format(y_true_pos))
-    print("y_pred_pos reshape: {}".format(y_pred_pos))
+    y_pred_pos = tf.reshape(y_pred, [-1])
     true_pos = tf.reduce_sum(y_true_pos * y_pred_pos)
-    print("true pos: {}".format(true_pos))
     false_neg = tf.reduce_sum(y_true_pos * (1 - y_pred_pos))
-    print("false neg: {}".format(false_neg))
     false_pos = tf.reduce_sum((1 - y_true_pos) * y_pred_pos)
-    print("false pos: {}".format(false_pos))
     return (true_pos + smooth) / (true_pos + alpha * false_neg + (1 - alpha) * false_pos + smooth)
 
 # @tf.function
 def tversky_loss(y_true, y_pred):
-    temp_var = tversky(y_true, y_pred)
-    tf.print("tversky in loss: {}".format(temp_var.numpy))
-    return 1 - temp_var
+    return 1 - tversky(y_true, y_pred)
  
+def dsc(y_true, y_pred, eps=1e-6):
+    y_pred_class = y_pred[:,:,:,-1]                         # select the class values, not the BG - sort of like argmax, but it doesn t round the values
+    y_pred_class = y_pred_class[..., tf.newaxis]            # add a new dim to match the input y_true
+    y_pred_class_f = tf.keras.backend.flatten(y_pred_class) # the dice loss implementation
+    y_true_f = tf.keras.backend.flatten(y_true)
+    intersection = tf.keras.backend.sum(y_true_f * y_pred_class_f)
+    answer = (2. * intersection + eps) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_class_f) + eps)
+    print("----------------------------------------")
+    print(answer)
+    return answer
+
+def dice_loss(y_true, y_pred):
+    return 0.5 + dsc(y_true, y_pred)
 
 optimizer_Adam = tf.keras.optimizers.Adam(
     learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False,
@@ -383,10 +386,10 @@ optimizer_Adam = tf.keras.optimizers.Adam(
 
 model.compile(optimizer=optimizer_Adam,
               # loss=tfa.losses.GIoULoss(),
-              loss = tversky_loss,
+              loss = dice_loss,
               #loss=tf.keras.losses.SparseCategoricalCrossentropy(), #from_logits=True
               # metrics=[tf.keras.metrics.Accuracy()])
-              metrics=['accuracy', MaskMeanIoU(name='iou', num_classes=OUTPUT_CHANNELS), tversky, tversky_loss])
+              metrics=['accuracy', MaskMeanIoU(name='iou', num_classes=OUTPUT_CHANNELS), dsc, dice_loss])
 
 # model.summary()
 # tf.keras.utils.plot_model(model, show_shapes=True)                                                                                                #plot model
@@ -413,18 +416,31 @@ def show_predictions(dataset=None, num=1):
              create_mask(model.predict(sample_image[tf.newaxis, ...]))])
 
 #                                                                                                                                          load weights from last save
-# if os.path.exists("./Weights/U-net_128_16bit_model.h5"): 
-#     model.load_weights("./Weights/U-net_128_16bit_model.h5")
-#     print("Model loded - OK")
+if os.path.exists("./Weights/U-net_128_16bit_model.h5"): 
+    model.load_weights("./Weights/U-net_128_16bit_model.h5")
+    print("Model loded - OK")
 
 # show_predictions()
 
 # rezultat = model.predict(sample_image[tf.newaxis, ...])
 # print("rezultat shape: {}".format(rezultat.shape))
 # print("rezultat: {}".format(rezultat))
-# index = rezultat[:,:,:,-1]
-
-# print("index: {}".format(index[...,tf.newaxis]))
+# y = rezultat[:,:,:,-1]
+# y = y[..., tf.newaxis]
+# y = tf.cast(y, dtype = tf.float32)
+# print("y shape: {}".format(y.shape))
+# print("y: {}".format(y))
+# y_flat = tf.keras.backend.flatten(y)
+# sample_mask_flat = tf.keras.backend.flatten(sample_mask)
+# print("Y flatten: {}".format(y_flat))
+# print("Sample Mask flatten: {}".format(sample_mask_flat))
+# print("Y flatten: {}".format(y_flat.dtype))
+# print("Sample Mask flatten: {}".format(sample_mask_flat.dtype))
+# intersection = tf.keras.backend.sum(sample_mask_flat * y_flat)
+# print("intersection: {}".format(intersection))
+# smooth=1e-6
+# answer = (2. * intersection + smooth) / (tf.keras.backend.sum(sample_mask_flat) + tf.keras.backend.sum(y_flat) + smooth)
+# print("Dice Loss: {}".format(answer))
 # print("index shape: {}".format(index[...,tf.newaxis].shape))
 # print("index count non zero: {}".format(tf.math.count_nonzero(index)))
 # print("sample_mask shape: {}".format(sample_mask.shape))
