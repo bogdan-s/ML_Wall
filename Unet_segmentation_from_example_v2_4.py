@@ -3,8 +3,8 @@
 import os
 from pathlib import Path
 import datetime
-from IPython.display import clear_output
-import IPython.display as display
+# from IPython.display import clear_output
+# import IPython.display as display
 from glob import glob
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -377,9 +377,9 @@ def show_predictions(dataset=None, num=1):
              create_mask(model.predict(sample_image[tf.newaxis, ...]))])
 
 #                                                                                                                                          load weights from last save
-if os.path.exists("./Weights/U-net_128_16bit_model_initializer.h5"): 
-    model.load_weights("./Weights/U-net_128_16bit_model_initializer.h5")
-    print("Model loded - OK")
+# if os.path.exists("./Weights/U-net_128_16bit_model_initializer.h5"): 
+#     model.load_weights("./Weights/U-net_128_16bit_model_initializer.h5")
+#     print("Model loded - OK")
 
 # show_predictions()
 
@@ -400,9 +400,9 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, write_ima
 
 class DisplayCallback(tf.keras.callbacks.Callback):
   def on_epoch_end(self, epoch, logs=None):
-    clear_output(wait=True)
+    # clear_output(wait=True)
     # show_predictions()
-    # show_predictions(train_dataset, 1)
+    show_predictions(train_dataset, 1)
     print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
     # model.save_weights("./Weights/U-net_128_16bit_model.h5")
 

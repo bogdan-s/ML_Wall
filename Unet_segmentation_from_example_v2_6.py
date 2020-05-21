@@ -17,11 +17,10 @@ import pix2pix
 import tensorflow_addons as tfa
 
 
-tf.keras.backend.clear_session()
 
-from tensorflow.keras.mixed_precision import experimental as mixed_precision
-policy = mixed_precision.Policy('mixed_float16')
-mixed_precision.set_policy(policy)
+# from tensorflow.keras.mixed_precision import experimental as mixed_precision
+# policy = mixed_precision.Policy('mixed_float16')
+# mixed_precision.set_policy(policy)
 
 #tf.logging.set_verbosity(tf.logging.ERROR)  #hide info
 # from tensorflow_examples.models.pix2pix import pix2pix
@@ -32,13 +31,14 @@ print(tf.__version__, end='\n\n')
 print("TensorFlow version: {}".format(tf.__version__))
 print("Eager execution: {}".format(tf.executing_eagerly()))
 # param
+IMG_SIZE_Before_Crop = 150 #150 for 128 final image
 IMG_SIZE = 128
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 OUTPUT_CHANNELS = 2
-EPOCHS = 3
+EPOCHS = 10
 away_from_computer = True  # to show or not predictions between batches
 save_model_for_inference = False # to save or not the model for inference
-SEED = 2
+SEED = 3
 
 # dataset location
 Train_Images_Path = "D:/Python/DataSets/ADE20K_Filtered/Train/Images/0/"
@@ -67,7 +67,7 @@ def parse_image(img_path):
     image = tf.io.decode_jpeg(image, channels=3)
     # image = tf.io.convert_image_dtype(image, tf.uint8)
     
-    mask_path = tf.strings.regex_replace(img_path, "Images", "New_Masks")
+    mask_path = tf.strings.regex_replace(img_path, "Images", "Masks")
     mask_path = tf.strings.regex_replace(mask_path, ".jpg", "_seg.png")
     mask = tf.io.read_file(mask_path)
     mask = tf.io.decode_png(mask, channels=0, dtype=tf.dtypes.uint8)
@@ -126,8 +126,8 @@ def load_image_train(datapoint: dict) -> tuple:
     tuple
         A modified image and its annotation.
     """
-    input_image = tf.image.resize(datapoint['image'], (150, 150), method='area')
-    input_mask = tf.image.resize(datapoint['segmentation_mask'], (150, 150), method='area') #, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+    input_image = tf.image.resize(datapoint['image'], (IMG_SIZE_Before_Crop, IMG_SIZE_Before_Crop), method='area')
+    input_mask = tf.image.resize(datapoint['segmentation_mask'], (IMG_SIZE_Before_Crop, IMG_SIZE_Before_Crop), method='area') #, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
 
     if tf.random.uniform(()) > 0.5:
         input_image = tf.image.flip_left_right(input_image)
@@ -137,7 +137,7 @@ def load_image_train(datapoint: dict) -> tuple:
 
     input_image = input_image / 255
     input_mask = tf.image.rgb_to_grayscale(input_mask)
-    input_mask = input_mask / 255
+    input_mask = tf.floor(input_mask / 255 + 0.5)
     # print("Shape: {}".format(input_image.shape))
     # print("Shape: {}".format(input_mask.shape))
     return input_image, input_mask
@@ -146,8 +146,8 @@ def load_image_train(datapoint: dict) -> tuple:
 def train_random_crop(crop_image, crop_mask) -> tuple:
     print("Shape image before crop: {}".format(crop_image.shape))
     print("Shape mask before crop: {}".format(crop_mask.shape))
-    crop_image = tf.image.random_crop(crop_image, size = [IMG_SIZE, IMG_SIZE, 3])
-    crop_mask = tf.image.random_crop(crop_mask, size = [IMG_SIZE, IMG_SIZE, 1])
+    crop_image = tf.image.random_crop(crop_image, size = [IMG_SIZE, IMG_SIZE, 3], seed=SEED)
+    crop_mask = tf.image.random_crop(crop_mask, size = [IMG_SIZE, IMG_SIZE, 1], seed=SEED)
     print("Shape image after crop: {}".format(crop_image.shape))
     print("Shape mask after crop: {}".format(crop_mask.shape))    
     return crop_image, crop_mask
@@ -178,7 +178,7 @@ def load_image_test(datapoint: dict) -> tuple:
     # input_image, input_mask = normalize(input_image, input_mask)
     input_image = input_image / 255
     input_mask = tf.image.rgb_to_grayscale(input_mask)
-    input_mask = input_mask / 255
+    input_mask = tf.floor(input_mask / 255 + 0.5)
 
     return input_image, input_mask
 
@@ -203,7 +203,7 @@ train = dataset['train'].map(load_image_train, num_parallel_calls=AUTOTUNE)
 # print(tf.data.Dataset.cardinality(test).numpy())
 
 
-train_dataset = train.cache() #.shuffle(buffer_size=TRAIN_LENGTH, seed=SEED, reshuffle_each_iteration=True)
+train_dataset = train.cache().shuffle(buffer_size=TRAIN_LENGTH, seed=SEED, reshuffle_each_iteration=True)
 train_dataset = train_dataset.map(train_random_crop, num_parallel_calls=AUTOTUNE)                                                       #  apply random_crop | if disabled adjust image resize in load_image_train
 train_dataset = train_dataset.batch(BATCH_SIZE).repeat() #
 train_dataset = train_dataset.prefetch(buffer_size=AUTOTUNE)
@@ -258,92 +258,46 @@ for image, mask in train_dataset.take(1):
 
 
 SIZE = IMG_SIZE
+def down_block(x, filters, kernel_size=(3, 3), padding="same", strides=1):
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
+    p = keras.layers.MaxPool2D((2, 2), (2, 2))(c)
+    return c, p
 
-OUTPUT_CHANNELS = 2
+def up_block(x, skip, filters, kernel_size=(3, 3), padding="same", strides=1):
+    us = keras.layers.UpSampling2D((2, 2))(x)
+    concat = keras.layers.Concatenate()([us, skip])
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(concat)
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
+    return c
 
-# Model from https://yann-leguilly.gitlab.io/post/2019-12-14-tensorflow-tfdata-segmentation/
+def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
+    return c
 
-# -- Keras Functional API -- #
-# -- UNet Implementation -- #
-# Everything here is from tensorflow.keras.layers
-# I imported tensorflow.keras.layers * to make it easier to read
-dropout_rate = 0.5
-input_size = (IMG_SIZE, IMG_SIZE, 3)
+def UNet():
+    f = [32, 64, 128, 256, 512]
+    inputs = keras.layers.Input((IMG_SIZE, IMG_SIZE, 3))
+    
+    p0 = inputs
+    c1, p1 = down_block(p0, f[0]) #128 -> 64
+    c2, p2 = down_block(p1, f[1]) #64 -> 32
+    c3, p3 = down_block(p2, f[2]) #32 -> 16
+    c4, p4 = down_block(p3, f[3]) #16->8
+    
+    bn = bottleneck(p4, f[4])
+    
+    u1 = up_block(bn, c4, f[3]) #8 -> 16
+    u2 = up_block(u1, c3, f[2]) #16 -> 32
+    u3 = up_block(u2, c2, f[1]) #32 -> 64
+    u4 = up_block(u3, c1, f[0]) #64 -> 128
+    
+    outputs = keras.layers.Conv2D(2, (1,1), padding="same", activation="softmax")(u4)
+    model = keras.models.Model(inputs, outputs)
+    return model
 
-# If you want to know more about why we are using `he_normal`: 
-# https://stats.stackexchange.com/questions/319323/whats-the-difference-between-variance-scaling-initializer-and-xavier-initialize/319849#319849  
-# Or the excelent fastai course: 
-# https://github.com/fastai/course-v3/blob/master/nbs/dl2/02b_initializing.ipynb
-# initializer = 'he_normal'
-initializer = tf.keras.initializers.he_normal(seed=SEED)
-
-# -- Encoder -- #
-# Block encoder 1
-inputs = Input(shape=input_size)
-conv_enc_1 = Conv2D(32, 3, activation='relu', padding='same', kernel_initializer=initializer)(inputs)
-conv_enc_1 = Conv2D(32, 3, activation = 'relu', padding='same', kernel_initializer=initializer)(conv_enc_1)
-
-# Block encoder 2
-max_pool_enc_2 = MaxPooling2D(pool_size=(2, 2))(conv_enc_1)
-conv_enc_2 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(max_pool_enc_2)
-conv_enc_2 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(conv_enc_2)
-
-# Block  encoder 3
-max_pool_enc_3 = MaxPooling2D(pool_size=(2, 2))(conv_enc_2)
-conv_enc_3 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(max_pool_enc_3)
-conv_enc_3 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(conv_enc_3)
-
-# Block  encoder 4
-max_pool_enc_4 = MaxPooling2D(pool_size=(2, 2))(conv_enc_3)
-conv_enc_4 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(max_pool_enc_4)
-conv_enc_4 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(conv_enc_4)
-# -- Encoder -- #
-
-# ----------- #
-maxpool = MaxPooling2D(pool_size=(2, 2))(conv_enc_4)
-conv = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(maxpool)
-conv = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(conv)
-# ----------- #
-
-# -- Dencoder -- #
-# Block decoder 1
-up_dec_1 = Conv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = initializer)(UpSampling2D(size = (2,2))(conv))
-merge_dec_1 = concatenate([conv_enc_4, up_dec_1], axis = 3)
-conv_dec_1 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(merge_dec_1)
-conv_dec_1 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(conv_dec_1)
-
-# Block decoder 2
-up_dec_2 = Conv2D(128, 2, activation = 'relu', padding = 'same', kernel_initializer = initializer)(UpSampling2D(size = (2,2))(conv_dec_1))
-merge_dec_2 = concatenate([conv_enc_3, up_dec_2], axis = 3)
-conv_dec_2 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(merge_dec_2)
-conv_dec_2 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(conv_dec_2)
-
-# Block decoder 3
-up_dec_3 = Conv2D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = initializer)(UpSampling2D(size = (2,2))(conv_dec_2))
-merge_dec_3 = concatenate([conv_enc_2, up_dec_3], axis = 3)
-conv_dec_3 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(merge_dec_3)
-conv_dec_3 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(conv_dec_3)
-
-# Block decoder 4
-up_dec_4 = Conv2D(32, 2, activation = 'relu', padding = 'same', kernel_initializer = initializer)(UpSampling2D(size = (2,2))(conv_dec_3))
-merge_dec_4 = concatenate([conv_enc_1, up_dec_4], axis = 3)
-conv_dec_4 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(merge_dec_4)
-conv_dec_4 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(conv_dec_4)
-conv_dec_4 = Conv2D(2, 3, activation = 'relu', padding = 'same', kernel_initializer = initializer)(conv_dec_4)
-# -- Dencoder -- #
-
-output = Conv2D(OUTPUT_CHANNELS, 1, activation = 'softmax')(conv_dec_4)
-# output = tf.argmax(output, axis=-1)
-# output = output[..., tf.newaxis]
-# output = tf.cast(output, tf.float16)
-
-model = tf.keras.Model(inputs = inputs, outputs = output)
-
-
-def DifferentiableArgmaxApproximation(x, beta = 1e2):
-    y = tf.reduce_sum(tf.cumsum(tf.ones_like(x)) * tf.exp(beta * x) / tf.reduce_sum(tf.exp(beta * x))) - 1
-    return y
-
+model = UNet()
 
 class MaskMeanIoU(tf.keras.metrics.MeanIoU):
     #                                                                                                    Mean Intersection over Union
@@ -351,10 +305,11 @@ class MaskMeanIoU(tf.keras.metrics.MeanIoU):
         y_pred = tf.argmax(y_pred, axis=-1)
         return super().update_state(y_true, y_pred, sample_weight=sample_weight)
 
-# @tf.function                                                                                                 #      Loss function
+
 def tversky(y_true, y_pred):
     alpha = 0.7
     smooth = 1.0
+    y_pred = tf.cast(tf.argmax(y_pred, axis=-1), dtype=tf.float32)
     y_true_pos = tf.reshape(y_true, [-1])
     y_pred_pos = tf.reshape(y_pred, [-1])
     true_pos = tf.reduce_sum(y_true_pos * y_pred_pos)
@@ -362,48 +317,31 @@ def tversky(y_true, y_pred):
     false_pos = tf.reduce_sum((1 - y_true_pos) * y_pred_pos)
     return (true_pos + smooth) / (true_pos + alpha * false_neg + (1 - alpha) * false_pos + smooth)
 
-# @tf.function
-def tversky_loss(y_true, y_pred):
-    return 1 - tversky(y_true, y_pred)
- 
+
 def dsc(y_true, y_pred, eps=1e-6):
-    y_pred_class = y_pred[:,:,:,-1]                         # select the class values, not the BG - sort of like argmax, but it doesn t round the values
-    y_pred_class = y_pred_class[..., tf.newaxis]            # add a new dim to match the input y_true
-    y_pred_class_f = tf.keras.backend.flatten(y_pred_class) # the dice loss implementation
+    y_pred = tf.cast(tf.argmax(y_pred, axis=-1), dtype=tf.float32)
+    y_pred_class_f = tf.keras.backend.flatten(y_pred) # the dice loss implementation
     y_true_f = tf.keras.backend.flatten(y_true)
     intersection = tf.keras.backend.sum(y_true_f * y_pred_class_f)
     answer = (2. * intersection + eps) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_class_f) + eps)
-    print("----------------------------------------")
-    print(answer)
     return answer
-
-def dice_loss(y_true, y_pred):
-    return 0.5 + dsc(y_true, y_pred)
 
 optimizer_Adam = tf.keras.optimizers.Adam(
     learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False,
     name='Adam')
 
-model.compile(optimizer=optimizer_Adam,
-              # loss=tfa.losses.GIoULoss(),
-              loss = dice_loss,
-              #loss=tf.keras.losses.SparseCategoricalCrossentropy(), #from_logits=True
-              # metrics=[tf.keras.metrics.Accuracy()])
-              metrics=['accuracy', MaskMeanIoU(name='iou', num_classes=OUTPUT_CHANNELS), dsc, dice_loss])
+model.compile(optimizer=Adam(learning_rate=0.001),
+              loss=tf.losses.SparseCategoricalCrossentropy(),
+              metrics=['accuracy'], #, MaskMeanIoU(name='iou', num_classes=OUTPUT_CHANNELS), dsc, tversky
+              )  #run_eagerly=True                                                                                                                     # run eager
 
-# model.summary()
-# tf.keras.utils.plot_model(model, show_shapes=True)                                                                                                #plot model
+model.summary()
+# tf.keras.utils.plot_model(model, show_shapes=True)                                                                                                # plot model
+
 
 def create_mask(pred_mask):                                                                                                                         # create mask
-    # print("Shape pred_mask in create_mask before argmax: {}".format(pred_mask))
-    # print("dType pred_mask in create_mask before argmax: {}".format(pred_mask.dtype))
-    # tf.print(pred_mask, output_stream=sys.stderr, summarize=True)
     pred_mask = tf.argmax(pred_mask, axis=-1)
-    # print("Shape pred_mask in create_mask after argmax: {}".format(pred_mask))
-    # print("dType pred_mask in create_mask after argmax: {}".format(pred_mask.dtype))
     pred_mask = pred_mask[..., tf.newaxis]
-    # print("Shape pred_mask in create_mask after adding axis: {}".format(pred_mask.shape))
-    # print("dType pred_mask in create_mask after adding axis: {}".format(pred_mask.dtype))
     return pred_mask[0]
 
 def show_predictions(dataset=None, num=1):
@@ -416,35 +354,12 @@ def show_predictions(dataset=None, num=1):
              create_mask(model.predict(sample_image[tf.newaxis, ...]))])
 
 #                                                                                                                                          load weights from last save
-if os.path.exists("./Weights/U-net_128_16bit_model.h5"): 
-    model.load_weights("./Weights/U-net_128_16bit_model.h5")
-    print("Model loded - OK")
+# if os.path.exists("./Weights/U-net_128_16bit_model_initializer.h5"): 
+#     model.load_weights("./Weights/U-net_128_16bit_model_initializer.h5")
+#     print("Model loded - OK")
 
-# show_predictions()
+show_predictions()
 
-# rezultat = model.predict(sample_image[tf.newaxis, ...])
-# print("rezultat shape: {}".format(rezultat.shape))
-# print("rezultat: {}".format(rezultat))
-# y = rezultat[:,:,:,-1]
-# y = y[..., tf.newaxis]
-# y = tf.cast(y, dtype = tf.float32)
-# print("y shape: {}".format(y.shape))
-# print("y: {}".format(y))
-# y_flat = tf.keras.backend.flatten(y)
-# sample_mask_flat = tf.keras.backend.flatten(sample_mask)
-# print("Y flatten: {}".format(y_flat))
-# print("Sample Mask flatten: {}".format(sample_mask_flat))
-# print("Y flatten: {}".format(y_flat.dtype))
-# print("Sample Mask flatten: {}".format(sample_mask_flat.dtype))
-# intersection = tf.keras.backend.sum(sample_mask_flat * y_flat)
-# print("intersection: {}".format(intersection))
-# smooth=1e-6
-# answer = (2. * intersection + smooth) / (tf.keras.backend.sum(sample_mask_flat) + tf.keras.backend.sum(y_flat) + smooth)
-# print("Dice Loss: {}".format(answer))
-# print("index shape: {}".format(index[...,tf.newaxis].shape))
-# print("index count non zero: {}".format(tf.math.count_nonzero(index)))
-# print("sample_mask shape: {}".format(sample_mask.shape))
-# print("Tverski Loss: {}".format(tversky_loss(tf.cast(sample_mask, dtype=tf.float16), rezultat[0])))
 
 # This function keeps the learning rate at 0.001 for the first ten epochs
 # and decreases it exponentially after that.
@@ -456,18 +371,18 @@ def scheduler(epoch):
 
 LRS = tf.keras.callbacks.LearningRateScheduler(scheduler)
 
-#  - TensorBoard
-data_folder = Path("c:/TFlogs/fit/")
-log_dir=data_folder / datetime.datetime.now().strftime("%m%d-%H%M%S")  #folder for tensorboard
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, write_images=True, write_graph=True) #, profile_batch=2, histogram_freq=1, write_graph=True
+# #  - TensorBoard
+# data_folder = Path("c:/TFlogs/fit/")
+# log_dir=data_folder / datetime.datetime.now().strftime("%m%d-%H%M%S")  #folder for tensorboard
+# tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, write_images=True, write_graph=True) #, profile_batch=2, histogram_freq=1, write_graph=True
 
 class DisplayCallback(tf.keras.callbacks.Callback):
-  def on_epoch_end(self, epoch, logs=None):
-    # clear_output(wait=True)
-    # show_predictions()
-    show_predictions(train_dataset, 1)
-    print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
-    # model.save_weights("./Weights/U-net_128_16bit_model.h5")
+    def on_epoch_end(self, epoch, logs=None):
+        # clear_output(wait=True)
+        # show_predictions()
+        show_predictions(train_dataset, epoch)
+        print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
+        # model.save_weights("./Weights/U-net_128_16bit_model.h5")
 
 
 
@@ -477,7 +392,7 @@ model_history = model.fit(train_dataset, epochs=EPOCHS,
                           steps_per_epoch=STEPS_PER_EPOCH,
                           validation_steps=VALIDATION_STEPS,
                           validation_data=test_dataset,
-                          callbacks=[DisplayCallback(), tensorboard_callback])  #LRS,
+                          callbacks=[DisplayCallback()])  #LRS, , tensorboard_callback
 
 
 # loss = model_history.history['loss']

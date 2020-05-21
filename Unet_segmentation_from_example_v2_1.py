@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
 import datetime
-from IPython.display import clear_output
-import IPython.display as display
+# from IPython.display import clear_output
+# import IPython.display as display
 from glob import glob
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -369,7 +369,7 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, write_ima
 
 class DisplayCallback(tf.keras.callbacks.Callback):
   def on_epoch_end(self, epoch, logs=None):
-    clear_output(wait=True)
+    # clear_output(wait=True)
     # show_predictions()
     show_predictions(train_dataset, 1)
     print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
