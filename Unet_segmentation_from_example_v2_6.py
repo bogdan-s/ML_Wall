@@ -22,23 +22,20 @@ import tensorflow_addons as tfa
 # policy = mixed_precision.Policy('mixed_float16')
 # mixed_precision.set_policy(policy)
 
-#tf.logging.set_verbosity(tf.logging.ERROR)  #hide info
-# from tensorflow_examples.models.pix2pix import pix2pix
-
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 print(tf.__version__, end='\n\n')
 print("TensorFlow version: {}".format(tf.__version__))
 print("Eager execution: {}".format(tf.executing_eagerly()))
 # param
-IMG_SIZE_Before_Crop = 150 #150 for 128 final image
-IMG_SIZE = 128
+IMG_SIZE_Before_Crop = 280 #150 for 128 final image
+IMG_SIZE = 256
 BATCH_SIZE = 32
 OUTPUT_CHANNELS = 2
-EPOCHS = 10
+EPOCHS = 30
 away_from_computer = True  # to show or not predictions between batches
 save_model_for_inference = False # to save or not the model for inference
-SEED = 3
+SEED = 5
 
 # dataset location
 Train_Images_Path = "D:/Python/DataSets/ADE20K_Filtered/Train/Images/0/"
@@ -278,6 +275,7 @@ def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
 
 def UNet():
     f = [32, 64, 128, 256, 512]
+    #f = [_*2 for _ in f1]
     inputs = keras.layers.Input((IMG_SIZE, IMG_SIZE, 3))
     
     p0 = inputs
@@ -326,13 +324,14 @@ def dsc(y_true, y_pred, eps=1e-6):
     answer = (2. * intersection + eps) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_class_f) + eps)
     return answer
 
+
 optimizer_Adam = tf.keras.optimizers.Adam(
     learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False,
     name='Adam')
 
 model.compile(optimizer=Adam(learning_rate=0.001),
               loss=tf.losses.SparseCategoricalCrossentropy(),
-              metrics=['accuracy'], #, MaskMeanIoU(name='iou', num_classes=OUTPUT_CHANNELS), dsc, tversky
+              metrics=['accuracy', MaskMeanIoU(name='iou', num_classes=OUTPUT_CHANNELS), dsc, tversky], #
               )  #run_eagerly=True                                                                                                                     # run eager
 
 model.summary()
@@ -358,29 +357,29 @@ def show_predictions(dataset=None, num=1):
 #     model.load_weights("./Weights/U-net_128_16bit_model_initializer.h5")
 #     print("Model loded - OK")
 
-show_predictions()
-
+# show_predictions()
+# model.predict(sample_image[tf.newaxis, ...])
 
 # This function keeps the learning rate at 0.001 for the first ten epochs
 # and decreases it exponentially after that.
 def scheduler(epoch):
-  if epoch < 5:
+  if epoch < 10:
     return 0.001
   else:
-    return 0.001 * tf.math.exp(0.1 * (10 - epoch))
+    return 0.0001 #* tf.math.exp(0.1 * (10 - epoch))
 
 LRS = tf.keras.callbacks.LearningRateScheduler(scheduler)
 
-# #  - TensorBoard
-# data_folder = Path("c:/TFlogs/fit/")
-# log_dir=data_folder / datetime.datetime.now().strftime("%m%d-%H%M%S")  #folder for tensorboard
-# tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, write_images=True, write_graph=True) #, profile_batch=2, histogram_freq=1, write_graph=True
+#  - TensorBoard
+data_folder = Path("c:/TFlogs/fit/")
+log_dir=data_folder / datetime.datetime.now().strftime("%m%d-%H%M%S")  #folder for tensorboard
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, write_images=True, write_graph=True) #, profile_batch=2, histogram_freq=1, write_graph=True
 
 class DisplayCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         # clear_output(wait=True)
         # show_predictions()
-        show_predictions(train_dataset, epoch)
+        # show_predictions(train_dataset, 1)
         print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
         # model.save_weights("./Weights/U-net_128_16bit_model.h5")
 
@@ -392,7 +391,7 @@ model_history = model.fit(train_dataset, epochs=EPOCHS,
                           steps_per_epoch=STEPS_PER_EPOCH,
                           validation_steps=VALIDATION_STEPS,
                           validation_data=test_dataset,
-                          callbacks=[DisplayCallback()])  #LRS, , tensorboard_callback
+                          callbacks=[DisplayCallback(), tensorboard_callback, LRS])  #LRS, 
 
 
 # loss = model_history.history['loss']

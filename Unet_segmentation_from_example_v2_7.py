@@ -255,26 +255,26 @@ for image, mask in train_dataset.take(15):
 
 # print('train daset: ', train)
 
-
+initializer = tf.keras.initializers.he_normal(seed=SEED)
 
 SIZE = IMG_SIZE
 
 def down_block(x, filters, kernel_size=(3, 3), padding="same", strides=1):
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu", kernel_initializer=initializer)(x)
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu", kernel_initializer=initializer)(c)
     p = keras.layers.MaxPool2D((2, 2), (2, 2))(c)
     return c, p
 
 def up_block(x, skip, filters, kernel_size=(3, 3), padding="same", strides=1):
     us = keras.layers.UpSampling2D((2, 2))(x)
     concat = keras.layers.Concatenate()([us, skip])
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(concat)
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu", kernel_initializer=initializer)(concat)
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu", kernel_initializer=initializer)(c)
     return c
 
 def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu", kernel_initializer=initializer)(x)
+    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu", kernel_initializer=initializer)(c)
     return c
 
 def UNet():
@@ -311,7 +311,6 @@ class MaskMeanIoU(tf.keras.metrics.MeanIoU):
 def tversky(y_true, y_pred):
     alpha = 0.7
     smooth = 1.0
-    y_pred = tf.cast(tf.argmax(y_pred, axis=-1), dtype=tf.float32)
     y_true_pos = tf.reshape(y_true, [-1])
     y_pred_pos = tf.reshape(y_pred, [-1])
     true_pos = tf.reduce_sum(y_true_pos * y_pred_pos)
@@ -321,7 +320,14 @@ def tversky(y_true, y_pred):
 
 
 def dsc(y_true, y_pred, eps=1e-6):
-    y_pred = tf.cast(tf.argmax(y_pred, axis=-1), dtype=tf.float32)
+    y_true_shape = tf.shape(y_true)
+    print('y true shape: {}'.format(y_true_shape))
+    # [b, h*w, classes]
+    y_pred = y_pred[:,:,:,-1]
+    y_pred = y_pred[...,tf.newaxis]
+    # print('y true reshaped: {}'.format(y_true.shape))
+    print('y pred reshaped: {}'.format(y_pred.shape))
+
     y_pred_class_f = tf.keras.backend.flatten(y_pred) # the dice loss implementation
     y_true_f = tf.keras.backend.flatten(y_true)
     intersection = tf.keras.backend.sum(y_true_f * y_pred_class_f)
@@ -332,8 +338,8 @@ optimizer_Adam = tf.keras.optimizers.Adam(
     learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False,
     name='Adam')
 
-loss_object = tf.keras.losses.SparseCategoricalCrossentropy()
-
+loss_object = dsc
+#loss_object = tf.keras.losses.SparseCategoricalCrossentropy()
 loss_history = []
 
 # model.compile(optimizer=Adam(learning_rate=0.001),
@@ -346,13 +352,13 @@ loss_history = []
 # model.load_weights("./Weights/U-net_128_16bit_model.h5")
 
 def create_mask(pred_mask):                                                                                                                         # create mask
-    print("Predicted mask: {}".format(pred_mask))
-    print("Predicted mask: {}".format(pred_mask.shape))
+    # print("Predicted mask: {}".format(pred_mask))
+    # print("Predicted mask: {}".format(pred_mask.shape))
     pred_mask = tf.argmax(pred_mask, axis=-1)
-    print("Predicted mask after argmax: {}".format(pred_mask.shape))
+    # print("Predicted mask after argmax: {}".format(pred_mask.shape))
     pred_mask = pred_mask[..., tf.newaxis]
-    print("Predicted mask after added new axis: {}".format(pred_mask.shape))
-    print("Predicted mask[0]: {}".format(pred_mask[0]))
+    # print("Predicted mask after added new axis: {}".format(pred_mask.shape))
+    # print("Predicted mask[0]: {}".format(pred_mask[0]))
     return pred_mask[0]
 
 def show_predictions(dataset=None, num=1):
@@ -382,16 +388,17 @@ visualize_trainable_vars(model)
 def train_step(images, masks):
     with tf.GradientTape() as tape:
         logits = model(images)
-        # print('Logits: {}'.format(logits))
+        print('Logits: {}'.format(logits))
+        print('Logits shape: {}'.format(logits.shape))
         # print('masks: {}'.format(masks))
         loss_value = loss_object(masks, logits)
         print('loss value {}'.format(loss_value))
     loss_history.append(loss_value.numpy().mean())
     grads = tape.gradient(loss_value, model.trainable_variables)
     grad_list = [tf.keras.backend.mean(_).numpy() for _ in grads]
-    # print('Mean values per gradient {}'.format(grad_list))
-    # plt.plot(grad_list)
-    # plt.show()
+    print('Mean values per gradient {}'.format(grad_list))
+    plt.plot(grad_list)
+    plt.show()
     optimizer_Adam.apply_gradients(zip(grads, model.trainable_variables))
     # print(model.predict(sample_image[tf.newaxis, ...]))
     # show_predictions(train_dataset, 15)
@@ -403,14 +410,14 @@ def train(epochs):
             no_of_batches += 1
             if no_of_batches < 3:
                 print('Batch no {} of epoch {}'.format(batch, epoch))
-                print('Images shape: {}'.format(images.shape))
-                print('Masks shape: {}'.format(masks.shape))
+                # print('Images shape: {}'.format(images.shape))
+                # print('Masks shape: {}'.format(masks.shape))
                 train_step(images, masks)
             else: 
                 break
         print ('Epoch {} finished'.format(epoch))
-        visualize_trainable_vars(model)
-        show_predictions(train_dataset, 1)
+        # visualize_trainable_vars(model)
+        # show_predictions(train_dataset, 1)
 
 train(epochs = 2)
 
