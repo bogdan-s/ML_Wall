@@ -28,14 +28,14 @@ print(tf.__version__, end='\n\n')
 print("TensorFlow version: {}".format(tf.__version__))
 print("Eager execution: {}".format(tf.executing_eagerly()))
 # param
-IMG_SIZE_Before_Crop = 280 #150 for 128 final image
-IMG_SIZE = 256
-BATCH_SIZE = 32
+IMG_SIZE_Before_Crop = 530 #150 for 128 final image
+IMG_SIZE = 512
+BATCH_SIZE = 6
 OUTPUT_CHANNELS = 2
-EPOCHS = 30
+EPOCHS = 20
 away_from_computer = True  # to show or not predictions between batches
 save_model_for_inference = False # to save or not the model for inference
-SEED = 5
+SEED = 15
 
 # dataset location
 Train_Images_Path = "D:/Python/DataSets/ADE20K_Filtered/Train/Images/0/"
@@ -64,7 +64,7 @@ def parse_image(img_path):
     image = tf.io.decode_jpeg(image, channels=3)
     # image = tf.io.convert_image_dtype(image, tf.uint8)
     
-    mask_path = tf.strings.regex_replace(img_path, "Images", "Masks")
+    mask_path = tf.strings.regex_replace(img_path, "Images", "New_Masks")
     mask_path = tf.strings.regex_replace(mask_path, ".jpg", "_seg.png")
     mask = tf.io.read_file(mask_path)
     mask = tf.io.decode_png(mask, channels=0, dtype=tf.dtypes.uint8)
@@ -274,8 +274,8 @@ def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     return c
 
 def UNet():
-    f = [32, 64, 128, 256, 512]
-    #f = [_*2 for _ in f1]
+    f1 = [32, 64, 128, 256, 512]
+    f = [_/2 for _ in f1]
     inputs = keras.layers.Input((IMG_SIZE, IMG_SIZE, 3))
     
     p0 = inputs
@@ -363,8 +363,8 @@ def show_predictions(dataset=None, num=1):
 # This function keeps the learning rate at 0.001 for the first ten epochs
 # and decreases it exponentially after that.
 def scheduler(epoch):
-  if epoch < 10:
-    return 0.001
+  if epoch < 6:
+    return 0.0005
   else:
     return 0.0001 #* tf.math.exp(0.1 * (10 - epoch))
 
@@ -381,7 +381,7 @@ class DisplayCallback(tf.keras.callbacks.Callback):
         # show_predictions()
         # show_predictions(train_dataset, 1)
         print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
-        # model.save_weights("./Weights/U-net_128_16bit_model.h5")
+        model.save_weights("./Weights/U-net_512_v2_model.h5")
 
 
 
@@ -394,21 +394,7 @@ model_history = model.fit(train_dataset, epochs=EPOCHS,
                           callbacks=[DisplayCallback(), tensorboard_callback, LRS])  #LRS, 
 
 
-# loss = model_history.history['loss']
-# val_loss = model_history.history['val_loss']
 
-# epochs = range(EPOCHS)
-
-# plt.figure()
-# plt.plot(epochs, loss, 'r', label='Training loss')
-# plt.plot(epochs, val_loss, 'bo', label='Validation loss')
-# plt.title('Training and Validation Loss')
-# plt.xlabel('Epoch')
-# plt.ylabel('Loss Value')
-# plt.ylim([0, 1])
-# plt.legend()
-# plt.show()
-
-# show_predictions(train_dataset, 3)
-# show_predictions(test_dataset, 3)
+show_predictions(train_dataset, 3)
+show_predictions(test_dataset, 3)
 
