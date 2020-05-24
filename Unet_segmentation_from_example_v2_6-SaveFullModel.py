@@ -17,7 +17,7 @@ import pix2pix
 import tensorflow_addons as tfa
 
 
-# Device Compute Precision - mixed precision
+
 # from tensorflow.keras.mixed_precision import experimental as mixed_precision
 # policy = mixed_precision.Policy('mixed_float16')
 # mixed_precision.set_policy(policy)
@@ -353,48 +353,12 @@ def show_predictions(dataset=None, num=1):
              create_mask(model.predict(sample_image[tf.newaxis, ...]))])
 
 #                                                                                                                                          load weights from last save
-# if os.path.exists("./Weights/U-net_128_16bit_model_initializer.h5"): 
-#     model.load_weights("./Weights/U-net_128_16bit_model_initializer.h5")
-#     print("Model loded - OK")
+if os.path.exists("./Weights/U-net_128_16bit_model_initializer.h5"): 
+    model.load_weights("./Weights/U-net_512_v2_model.h5")
+    print("Model weights loded - OK")
 
-# show_predictions()
+show_predictions()
+
+model.save('./Weights/U-net_512_v2_full_model.h5')
 # model.predict(sample_image[tf.newaxis, ...])
-
-# This function keeps the learning rate at 0.001 for the first ten epochs
-# and decreases it exponentially after that.
-def scheduler(epoch):
-  if epoch < 6:
-    return 0.0005
-  else:
-    return 0.0001 #* tf.math.exp(0.1 * (10 - epoch))
-
-LRS = tf.keras.callbacks.LearningRateScheduler(scheduler)
-
-#  - TensorBoard
-data_folder = Path("c:/TFlogs/fit/")
-log_dir=data_folder / datetime.datetime.now().strftime("%m%d-%H%M%S")  #folder for tensorboard
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, write_images=True, write_graph=True) #, profile_batch='50,500', histogram_freq=1, write_graph=True
-
-class DisplayCallback(tf.keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        # clear_output(wait=True)
-        # show_predictions()
-        # show_predictions(train_dataset, 1)
-        print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
-        # model.save_weights("./Weights/U-net_512_v2_model.h5")
-
-
-
-VALIDATION_STEPS = VAL_LENGTH // BATCH_SIZE
-
-model_history = model.fit(train_dataset, epochs=EPOCHS,
-                          steps_per_epoch=STEPS_PER_EPOCH,
-                          validation_steps=VALIDATION_STEPS,
-                          validation_data=test_dataset,
-                          callbacks=[DisplayCallback(), tensorboard_callback, LRS])  #LRS, 
-
-
-
-show_predictions(train_dataset, 3)
-show_predictions(test_dataset, 3)
 
